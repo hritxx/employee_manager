@@ -1,6 +1,3 @@
-"""
-ETL Pipeline for HR Management System
-"""
 
 import pandas as pd
 from pathlib import Path
@@ -18,7 +15,6 @@ from data_seeder import DatabaseSeeder
 logger = logging.getLogger(__name__)
 
 class ETLPipeline:
-    """Coordinates the ETL process"""
 
     def __init__(self):
         self.seeder = DatabaseSeeder({
@@ -31,22 +27,22 @@ class ETLPipeline:
         self.upload_id: Optional[int] = None
 
     def process_files(self, files: Dict[str, Path]) -> Tuple[bool, str, Dict]:
-        """Process uploaded files through the ETL pipeline"""
+
         try:
-            # Connect to database
+
             self.seeder.connect()
 
-            # Log upload start
+
             logger.info(f"Starting ETL process with files: {[f.name for f in files.values()]}")
             
-            # Read all CSV files
+
             df_dict = {}
             for file_type, file_path in files.items():
                 logger.info(f"Reading {file_type} from {file_path}")
                 df_dict[file_type] = pd.read_csv(file_path)
                 logger.info(f"Successfully read {len(df_dict[file_type])} rows from {file_path}")
 
-            # Use DatabaseSeeder to load data
+
             success = self.seeder.seed_database(
                 {
                     'employee_master': df_dict.get('employee_master'),
@@ -56,12 +52,12 @@ class ETLPipeline:
                     'attendance_report': df_dict.get('attendance_report'),
                     'timesheet_report': df_dict.get('timesheet_report'),
                     'project_allocations': df_dict.get('project_allocations'),
-                    'resource_utilization': df_dict.get('resource_utilization')  # Add the new DataFrame
+                    'resource_utilization': df_dict.get('resource_utilization')  
                 },
-                clean_existing=False  # Don't clean existing data
+                clean_existing=False  
             )
 
-            # Close database connection
+
             self.seeder.disconnect()
 
             if success:

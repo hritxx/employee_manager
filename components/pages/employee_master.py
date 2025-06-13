@@ -14,10 +14,10 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 import base64
 
 def show_employee_master_report(engine=None, db_pool=None):
-    """Display Employee Master Report with comprehensive employee and project details"""
+
     st.subheader("Employee Master Report")
     
-    # Initialize session state
+
     if 'selected_employee' not in st.session_state:
         st.session_state.selected_employee = None
     if 'employee_data' not in st.session_state:
@@ -25,44 +25,42 @@ def show_employee_master_report(engine=None, db_pool=None):
     if 'project_data' not in st.session_state:
         st.session_state.project_data = None
     
-    # Sidebar filters
+
     st.sidebar.header("🔍 Filter Options")
     
-    # Employee Status Filter
+
     status_filter = st.sidebar.selectbox(
         "Employee Status",
         ["All", "Active", "Inactive"],
-        index=1  # Default to Active
+        index=1  
     )
     
-    # Department Filter
+
     departments = get_departments(engine, db_pool)
     dept_filter = st.sidebar.selectbox(
         "Department",
         ["All"] + departments
     )
     
-    # Business Unit Filter
+
     business_units = get_business_units(engine, db_pool)
     bu_filter = st.sidebar.selectbox(
         "Business Unit", 
         ["All"] + business_units
     )
     
-    # Load employee data based on filters
+
     employees_df = load_employee_data(engine, db_pool, status_filter, dept_filter, bu_filter)
     
     if employees_df.empty:
         st.warning("No employees found matching the selected criteria.")
         return
     
-    # Main content area
+
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        # st.subheader("Employee List")
-        
-        # Employee selection
+
         employee_options = [f"{row['employee_code']} - {row['employee_name']}" 
                           for _, row in employees_df.iterrows()]
         
@@ -75,11 +73,11 @@ def show_employee_master_report(engine=None, db_pool=None):
         if selected_employee_option:
             selected_employee_code = selected_employee_option.split(" - ")[0]
             
-            # Load detailed employee data
+
             employee_details = load_employee_details(engine, db_pool, selected_employee_code)
             project_details = load_employee_projects(engine, db_pool, selected_employee_code)
             
-            # Debug information
+
             if employee_details is None:
                 st.error("Failed to load employee details. Please check the database connection.")
             else:
@@ -93,7 +91,7 @@ def show_employee_master_report(engine=None, db_pool=None):
         else:
             st.info("👈 Please select an employee from the list to view details.")
     
-    # Download section
+
     if st.session_state.employee_data is not None:
         st.markdown("---")
         st.subheader("Download Report")
@@ -122,7 +120,6 @@ def show_employee_master_report(engine=None, db_pool=None):
                 )
 
 def get_departments(engine, db_pool):
-    """Get list of departments"""
     query = "SELECT DISTINCT department_name FROM department WHERE status = 'Active' ORDER BY department_name"
     try:
         if engine:
@@ -135,7 +132,7 @@ def get_departments(engine, db_pool):
         return []
 
 def get_business_units(engine, db_pool):
-    """Get list of business units"""
+
     query = "SELECT DISTINCT business_unit FROM department ORDER BY business_unit"
     try:
         if engine:
@@ -148,7 +145,7 @@ def get_business_units(engine, db_pool):
         return []
 
 def load_employee_data(engine, db_pool, status_filter, dept_filter, bu_filter):
-    """Load employee data with filters"""
+
     query = """
     SELECT 
         e.employee_code,
@@ -202,7 +199,6 @@ def load_employee_data(engine, db_pool, status_filter, dept_filter, bu_filter):
                 df = pd.read_sql(query, db_pool)
         return df
     except Exception as e:
-        # Try alternative parameter method
         try:
             if params:
                 query_alt = query.replace('%s', '?')
@@ -219,7 +215,6 @@ def load_employee_data(engine, db_pool, status_filter, dept_filter, bu_filter):
             return pd.DataFrame()
 
 def load_employee_details(engine, db_pool, employee_code):
-    """Load detailed employee information"""
     query = """
     SELECT 
         e.*,
@@ -256,25 +251,25 @@ def load_employee_details(engine, db_pool, employee_code):
         if engine:
             df = pd.read_sql(query, engine, params=(employee_code,))
         else:
-            # For direct database connection, use different parameter style
+
             if hasattr(db_pool, 'execute'):
-                # If it's a connection object
+
                 df = pd.read_sql(query, db_pool, params=(employee_code,))
             else:
-                # If it's a different type of connection, try without params keyword
+
                 df = pd.read_sql(query, db_pool, params=[employee_code])
         return df.iloc[0] if not df.empty else None
     except Exception as e:
-        # Try alternative parameter passing methods
+
         try:
-            query_alt = query.replace('%s', '?')  # Try with ? placeholder
+            query_alt = query.replace('%s', '?')  
             if engine:
                 df = pd.read_sql(query_alt, engine, params=[employee_code])
             else:
                 df = pd.read_sql(query_alt, db_pool, params=[employee_code])
             return df.iloc[0] if not df.empty else None
         except Exception as e2:
-            # Last resort: use string formatting (less secure but compatible)
+
             try:
                 query_formatted = f"""
                 SELECT 
@@ -319,7 +314,6 @@ def load_employee_details(engine, db_pool, employee_code):
                 return None
 
 def load_employee_projects(engine, db_pool, employee_code):
-    """Load employee project allocation and timesheet data"""
     query = """
     SELECT 
         p.project_id,
@@ -359,23 +353,20 @@ def load_employee_projects(engine, db_pool, employee_code):
         if engine:
             df = pd.read_sql(query, engine, params=(employee_code, employee_code))
         else:
-            # For direct database connection, use different parameter style
             if hasattr(db_pool, 'execute'):
                 df = pd.read_sql(query, db_pool, params=(employee_code, employee_code))
             else:
                 df = pd.read_sql(query, db_pool, params=[employee_code, employee_code])
         return df
     except Exception as e:
-        # Try alternative parameter passing methods
         try:
-            query_alt = query.replace('%s', '?')  # Try with ? placeholder
+            query_alt = query.replace('%s', '?')  
             if engine:
                 df = pd.read_sql(query_alt, engine, params=[employee_code, employee_code])
             else:
                 df = pd.read_sql(query_alt, db_pool, params=[employee_code, employee_code])
             return df
         except Exception as e2:
-            # Last resort: use string formatting (less secure but compatible)
             try:
                 query_formatted = f"""
                 SELECT 
@@ -423,27 +414,26 @@ def load_employee_projects(engine, db_pool, employee_code):
                 return pd.DataFrame()
 
 def display_employee_dashboard(employee_data, project_data):
-    """Display comprehensive employee dashboard with proper document view"""
+
     
-    # Convert Series to dict for easier access
     if hasattr(employee_data, 'to_dict'):
         emp_dict = employee_data.to_dict()
     else:
         emp_dict = employee_data
     
-    # Helper function to safely get values
+
     def safe_get(key, default='N/A'):
         value = emp_dict.get(key, default)
         if pd.isna(value) or value is None:
             return default
         return str(value)
     
-    # Employee Header
+
     st.markdown("---")
-    # st.markdown("# EMPLOYEE MASTER REPORT")
+
 
     
-    # Employee Basic Info Header
+
     col1, col2 = st.columns([2, 1])
     with col1:
         st.markdown(f"## 👤 {safe_get('employee_name')}")
@@ -454,10 +444,10 @@ def display_employee_dashboard(employee_data, project_data):
     
     st.markdown("---")
     
-    # SECTION 1: PERSONAL & PROFESSIONAL INFORMATION
+
     st.markdown("## PERSONAL & PROFESSIONAL INFORMATION")
     
-    # Professional Details
+
     st.markdown("### Professional Details")
     prof_col1, prof_col2, prof_col3 = st.columns(3)
     
@@ -485,7 +475,7 @@ def display_employee_dashboard(employee_data, project_data):
         **Total Experience:** {total_exp} years
         """)
     
-    # Contact Information
+
     if safe_get('email') != 'N/A' or safe_get('mobile_number') != 'N/A':
         st.markdown("###  Contact Information")
         contact_col1, contact_col2 = st.columns(2)
@@ -496,17 +486,17 @@ def display_employee_dashboard(employee_data, project_data):
     
     st.markdown("---")
     
-    # SECTION 2: PROJECT INFORMATION
+
     st.markdown("## PROJECT INFORMATION")
     
     if not project_data.empty:
-        # Remove duplicates based on project_name and effective dates
+
         project_data_clean = project_data.drop_duplicates(
             subset=['project_name', 'effective_from', 'effective_to'], 
             keep='first'
         )
         
-        # Separate active and completed projects
+
         active_projects = project_data_clean[
             (project_data_clean['project_work_status'] == 'Active') | 
             (pd.isna(project_data_clean['effective_to']))
@@ -516,14 +506,14 @@ def display_employee_dashboard(employee_data, project_data):
             (~pd.isna(project_data_clean['effective_to']))
         ]
         
-        # Current/Active Projects
+
         st.markdown(f"### Current Projects ({len(active_projects)})")
         if not active_projects.empty:
             for idx, project in active_projects.iterrows():
                 with st.container():
                     st.markdown(f"#### 📁 {project['project_name']}")
                     
-                    # Project details in organized layout
+
                     proj_col1, proj_col2, proj_col3, proj_col4 = st.columns(4)
                     
                     with proj_col1:
@@ -558,14 +548,14 @@ def display_employee_dashboard(employee_data, project_data):
         else:
             st.info("🔍 No active projects found")
         
-        # Completed/Previous Projects
+
         st.markdown(f"### Previous Projects ({len(completed_projects)})")
         if not completed_projects.empty:
             for idx, project in completed_projects.iterrows():
                 with st.container():
                     st.markdown(f"#### 📁 {project['project_name']}")
                     
-                    # Project details in organized layout
+
                     proj_col1, proj_col2, proj_col3, proj_col4 = st.columns(4)
                     
                     with proj_col1:
@@ -601,7 +591,7 @@ def display_employee_dashboard(employee_data, project_data):
         else:
             st.info("🔍 No previous projects found")
             
-        # Project Summary
+
         st.markdown("### Project Summary")
         summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
         
@@ -618,7 +608,6 @@ def display_employee_dashboard(employee_data, project_data):
     else:
         st.info("🔍 No project information available for this employee")
     
-    # SECTION 3: EXIT INFORMATION (if applicable)
     if safe_get('exit_date') != 'N/A':
         st.markdown("---")
         st.markdown("##  EXIT INFORMATION")
@@ -639,27 +628,27 @@ def display_employee_dashboard(employee_data, project_data):
     st.markdown("*Report generated on: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "*")
 
 def generate_pdf_report(employee_data, project_data):
-    """Generate comprehensive PDF report with professional document layout"""
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.75*inch, bottomMargin=0.75*inch,
                           leftMargin=0.75*inch, rightMargin=0.75*inch)
     styles = getSampleStyleSheet()
     story = []
     
-    # Convert Series to dict if needed
+
     if hasattr(employee_data, 'to_dict'):
         emp_dict = employee_data.to_dict()
     else:
         emp_dict = employee_data
     
-    # Helper function to safely get values
+
     def safe_get(key, default='N/A'):
         value = emp_dict.get(key, default)
         if pd.isna(value) or value is None:
             return default
         return str(value)
     
-    # Custom styles
+
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
@@ -715,22 +704,22 @@ def generate_pdf_report(employee_data, project_data):
         fontName='Helvetica'
     )
     
-    # Document Header
+
     story.append(Paragraph("EMPLOYEE MASTER REPORT", title_style))
     story.append(Paragraph("_" * 100, normal_style))
     story.append(Spacer(1, 12))
     
-    # Employee Basic Information
+
     story.append(Paragraph(f"<b>Employee Name:</b> {safe_get('employee_name')}", normal_style))
     story.append(Paragraph(f"<b>Employee Code:</b> {safe_get('employee_code')}", normal_style))
     story.append(Paragraph(f"<b>Status:</b> {safe_get('status')}", normal_style))
     story.append(Paragraph(f"<b>Report Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", normal_style))
     story.append(Spacer(1, 16))
     
-    # SECTION 1: PERSONAL & PROFESSIONAL INFORMATION
+
     story.append(Paragraph("1. PERSONAL & PROFESSIONAL INFORMATION", section_style))
     
-    # Professional Details
+
     story.append(Paragraph("Professional Details", subsection_style))
     story.append(Paragraph(f"<b>Department:</b> {safe_get('department_name')}", field_style))
     story.append(Paragraph(f"<b>Business Unit:</b> {safe_get('business_unit')}", field_style))
@@ -742,7 +731,7 @@ def generate_pdf_report(employee_data, project_data):
     story.append(Paragraph(f"<b>Reporting Manager:</b> {safe_get('manager_name')}", field_style))
     story.append(Spacer(1, 8))
     
-    # Experience Information
+
     story.append(Paragraph("Experience Details", subsection_style))
     total_exp = emp_dict.get('total_experience', 0)
     if pd.isna(total_exp) or total_exp is None:
@@ -753,24 +742,23 @@ def generate_pdf_report(employee_data, project_data):
     story.append(Paragraph(f"<b>Total Experience:</b> {total_exp} years", field_style))
     story.append(Spacer(1, 8))
     
-    # Contact Information
+
     if safe_get('email') != 'N/A' or safe_get('mobile_number') != 'N/A':
         story.append(Paragraph("Contact Information", subsection_style))
         story.append(Paragraph(f"<b>Email:</b> {safe_get('email')}", field_style))
         story.append(Paragraph(f"<b>Mobile Number:</b> {safe_get('mobile_number')}", field_style))
         story.append(Spacer(1, 8))
     
-    # SECTION 2: PROJECT INFORMATION
+
     story.append(Paragraph("2. PROJECT INFORMATION", section_style))
     
     if not project_data.empty:
-        # Remove duplicates
         project_data_clean = project_data.drop_duplicates(
             subset=['project_name', 'effective_from', 'effective_to'], 
             keep='first'
         )
         
-        # Separate active and completed projects
+
         active_projects = project_data_clean[
             (project_data_clean['project_work_status'] == 'Active') | 
             (pd.isna(project_data_clean['effective_to']))
@@ -780,7 +768,7 @@ def generate_pdf_report(employee_data, project_data):
             (~pd.isna(project_data_clean['effective_to']))
         ]
         
-        # Project Summary
+
         story.append(Paragraph("Project Summary", subsection_style))
         total_hours = project_data_clean['total_hours_logged'].fillna(0).sum()
         total_days = project_data_clean['total_days_worked'].fillna(0).sum()
@@ -792,7 +780,7 @@ def generate_pdf_report(employee_data, project_data):
         story.append(Paragraph(f"<b>Total Days Worked:</b> {total_days}", field_style))
         story.append(Spacer(1, 12))
         
-        # Current Projects
+
         if not active_projects.empty:
             story.append(Paragraph(f"Current Projects ({len(active_projects)})", subsection_style))
             
@@ -809,7 +797,7 @@ def generate_pdf_report(employee_data, project_data):
                     story.append(Paragraph(f"    <b>Change Reason:</b> {project.get('change_reason')}", field_style))
                 story.append(Spacer(1, 6))
         
-        # Previous Projects
+
         if not completed_projects.empty:
             story.append(Paragraph(f"Previous Projects ({len(completed_projects)})", subsection_style))
             
@@ -829,7 +817,7 @@ def generate_pdf_report(employee_data, project_data):
         story.append(Paragraph("No project information available for this employee.", field_style))
         story.append(Spacer(1, 12))
     
-    # SECTION 3: EXIT INFORMATION (if applicable)
+
     if safe_get('exit_date') != 'N/A':
         story.append(Paragraph("3. EXIT INFORMATION", section_style))
         story.append(Paragraph(f"<b>Exit Date:</b> {safe_get('exit_date')}", field_style))
@@ -838,7 +826,7 @@ def generate_pdf_report(employee_data, project_data):
         story.append(Paragraph(f"<b>Exit Comments:</b> {safe_get('exit_comments')}", field_style))
         story.append(Spacer(1, 12))
     
-    # Footer
+
     story.append(Spacer(1, 20))
     story.append(Paragraph("_" * 100, normal_style))
     story.append(Spacer(1, 6))
@@ -846,28 +834,28 @@ def generate_pdf_report(employee_data, project_data):
                           ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, 
                                        alignment=TA_CENTER, fontName='Helvetica')))
     
-    # Build PDF
+
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
 
 def generate_csv_report(employee_data, project_data):
-    """Generate CSV report"""
+
     
-    # Convert Series to dict if needed
+
     if hasattr(employee_data, 'to_dict'):
         emp_dict = employee_data.to_dict()
     else:
         emp_dict = employee_data
     
-    # Helper function to safely get values
+
     def safe_get(key, default='N/A'):
         value = emp_dict.get(key, default)
         if pd.isna(value) or value is None:
             return default
         return str(value)
     
-    # Combine employee and project data
+
     combined_data = []
     
     if not project_data.empty:
@@ -888,7 +876,7 @@ def generate_csv_report(employee_data, project_data):
             }
             combined_data.append(row)
     else:
-        # If no projects, just employee data
+
         combined_data.append({
             'Employee Code': safe_get('employee_code'),
             'Employee Name': safe_get('employee_name'),

@@ -7,10 +7,9 @@ from components.utils.activity_logger import get_logger
 
 
 def render_file_upload(db_pool):
-    """Render the file upload page"""
     st.subheader("File Upload")
 
-    # Create a single file uploader for multiple files
+
     uploaded_files = st.file_uploader(
         "Upload CSV Files",
         type=['csv'],
@@ -19,13 +18,13 @@ def render_file_upload(db_pool):
     )
 
     if uploaded_files:
-        # Process uploaded files
+
         files_dict = {}
         unrecognized_files = []
 
-        # Process uploaded files silently
+
         for uploaded_file in uploaded_files:
-            # Map file to type based on name
+
             file_type = None
             for type_key, type_name in etl_config.required_files.items():
                 if type_name.lower() in uploaded_file.name.lower():
@@ -33,7 +32,6 @@ def render_file_upload(db_pool):
                     break
 
             if file_type:
-                # Save uploaded file
                 save_path = app_config.upload_folder / f"{file_type}_{uploaded_file.name}"
                 with open(save_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
@@ -41,28 +39,27 @@ def render_file_upload(db_pool):
             else:
                 unrecognized_files.append(uploaded_file.name)
 
-        # Show simple status message
         if files_dict:
             if unrecognized_files:
                 st.warning(f"✓ {len(files_dict)} files uploaded successfully. Unable to process: {', '.join(unrecognized_files)}")
             else:
                 st.success(f"✓ All {len(files_dict)} files uploaded successfully!")
 
-            # Process button
+
             if st.button("Process Files", type="primary"):
                 try:
                     with st.spinner("Processing files..."):
-                        # Initialize and run ETL pipeline
+
                         pipeline = ETLPipeline()
                         success, message, stats = pipeline.process_files(files_dict)
 
-                        # Show simple results
+
                         if success:
                             st.success("✓ All files processed successfully!")
                         else:
                             st.warning(f"⚠ Processing completed with errors: {message}")
 
-                        # Show error details if any
+
                         total_errors = sum(stats.get('validation_errors', {}).values())
                         if total_errors > 0:
                             with st.expander("View Error Details"):
@@ -74,7 +71,7 @@ def render_file_upload(db_pool):
                 except Exception as e:
                     st.error(f"Error processing files: {e}")
 
-    # Show upload history
+
     st.subheader("Upload History")
     try:
         with db_pool.get_cursor() as cursor:
@@ -94,7 +91,7 @@ def render_file_upload(db_pool):
                 ])
                 st.dataframe(df, use_container_width=True)
 
-                # Show validation errors for selected upload
+
                 selected_upload = st.selectbox(
                     "Select upload to view errors",
                     options=[row[0] for row in uploads],

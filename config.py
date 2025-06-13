@@ -1,6 +1,3 @@
-"""
-Configuration settings for the HR Management System
-"""
 
 import os
 from pathlib import Path
@@ -8,7 +5,7 @@ from typing import Dict
 from dataclasses import dataclass
 import logging
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -58,12 +55,12 @@ class AppConfig:
         self.upload_folder.mkdir(exist_ok=True)
         self.log_folder.mkdir(exist_ok=True)
 
-# Create global config instances
+
 db_config = DatabaseConfig()
 etl_config = ETLConfig()
 app_config = AppConfig()
 
-# Validation schemas for each file type
+
 FILE_SCHEMAS = {
     'employee_master': {
         'required_columns': [
@@ -133,7 +130,7 @@ FILE_SCHEMAS = {
     }
 }
 
-# Data type validation rules
+
 DATA_TYPE_RULES = {
     'Employee Code': str,
     'Email': str,

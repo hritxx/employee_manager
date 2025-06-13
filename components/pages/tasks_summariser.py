@@ -10,8 +10,6 @@ import re
 
 class TaskSummarizer:
     def __init__(self):
-        """Initialize the task summarizer with environment variables"""
-        # Get API key from environment
         gemini_api_key = os.getenv('GEMINI_API_KEY')
         if not gemini_api_key:
             st.error("GEMINI_API_KEY not found in environment variables")
@@ -20,7 +18,6 @@ class TaskSummarizer:
         genai.configure(api_key=gemini_api_key)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
         
-        # Database configuration from environment variables
         self.db_config = {
             'host': os.getenv('DB_HOST', 'localhost'),
             'database': os.getenv('DB_NAME', 'postgres'),
@@ -30,7 +27,7 @@ class TaskSummarizer:
         }
         
     def get_database_connection(self):
-        """Create database connection"""
+
         try:
             conn = psycopg2.connect(**self.db_config)
             return conn
@@ -39,7 +36,6 @@ class TaskSummarizer:
             return None
     
     def fetch_employee_timesheet_data(self, employee_code: str) -> Dict:
-        """Fetch all timesheet data for a given employee grouped by project"""
         conn = self.get_database_connection()
         if not conn:
             return {}
@@ -68,7 +64,6 @@ class TaskSummarizer:
             if df.empty:
                 return {}
             
-            # Group by project
             projects_data = {}
             for project_id, group in df.groupby('project_id'):
                 project_info = {
@@ -96,11 +91,9 @@ class TaskSummarizer:
             return {}
     
     def summarize_project_tasks_with_gemini(self, project_data: Dict) -> str:
-        """Summarize tasks for a specific project using Gemini API"""
         if not project_data or not project_data.get('tasks'):
             return "No tasks found for this project."
         
-        # Prepare tasks text
         tasks_text = []
         for task in project_data['tasks']:
             tasks_text.append(f"- {task['description']} ({task['hours']} hours on {task['date']})")
@@ -178,7 +171,7 @@ class TaskSummarizer:
             return {}
     
     def get_all_employees(self) -> List[str]:
-        """Get list of all employees who have timesheet entries"""
+
         conn = self.get_database_connection()
         if not conn:
             return []
@@ -193,7 +186,7 @@ class TaskSummarizer:
             df = pd.read_sql_query(query, conn)
             conn.close()
             
-            # Return list of formatted strings: "CODE - Name"
+
             return [f"{row['employee_code']} - {row['employee_name']}" for _, row in df.iterrows()]
         
         except Exception as e:
@@ -203,12 +196,11 @@ class TaskSummarizer:
             return []
 
 def task_summarizer():
-    """Tab 5: Employee Task Summarizer"""
+
     
     st.header("Employee Task Summarizer")
     
     
-    # Check for required environment variables
     required_vars = ['GEMINI_API_KEY', 'DB_PASSWORD']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
@@ -219,41 +211,31 @@ def task_summarizer():
             st.code(f"export {var}=your_value_here")
         return
     
-    # Initialize the task summarizer
+
     try:
         summarizer = TaskSummarizer()
         if not hasattr(summarizer, 'model'):
-            return  # Error already shown in __init__
+            return  
     except Exception as e:
         st.error(f"Error initializing Task Summarizer: {str(e)}")
         return
     
-    # Create columns for layout
+
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        # st.subheader("Employee Selection")
-        
-        # # Database connection test - using container instead of expander
-        # st.markdown("#### Database Connection")
-        # if st.button("Test Database Connection", key="test_db_conn"):
-        #     conn = summarizer.get_database_connection()
-        #     if conn:
-        #         st.success(" Database connected successfully!")
-        #         conn.close()
-        #     else:
-        #         st.error(" Database connection failed!")
+  
         
         st.divider()
         
-        # Get all employees
+
         employees = summarizer.get_all_employees()
         
         if not employees:
             st.error("No employees found with timesheet entries or connection error.")
             return
         
-        # Employee selection
+
         selected_employee_display = st.selectbox(
             "Select Employee:",
             options=employees,
@@ -261,10 +243,10 @@ def task_summarizer():
             key="employee_select_tab5"
         )
         
-        # Extract employee code from display string
+
         selected_employee = selected_employee_display.split(' - ')[0] if selected_employee_display else None
         
-        # Model selection
+
         model_options = {
             'gemini-1.5-flash': 'Gemini 1.5 Flash (Fast & Efficient)',
             'gemini-1.5-flash-002': 'Gemini 1.5 Flash-002 (Latest)',
@@ -278,19 +260,19 @@ def task_summarizer():
             key="model_select_tab5"
         )
         
-        # Summarize tasks button
+
         if st.button(" Summarize Tasks", use_container_width=True, key="summarize_btn"):
             if selected_employee:
                 with st.spinner("Analyzing timesheet data and generating summaries..."):
-                    # Update model based on selection
+
                     summarizer.model = genai.GenerativeModel(selected_model)
                     
-                    # Store results in session state with tab-specific keys
+
                     st.session_state.tab5_current_employee = selected_employee
                     st.session_state.tab5_employee_stats = summarizer.get_employee_summary_stats(selected_employee)
                     st.session_state.tab5_projects_data = summarizer.fetch_employee_timesheet_data(selected_employee)
                     
-                    # Generate summaries for each project
+
                     st.session_state.tab5_project_summaries = {}
                     for project_id, project_data in st.session_state.tab5_projects_data.items():
                         st.session_state.tab5_project_summaries[project_id] = summarizer.summarize_project_tasks_with_gemini(project_data)
@@ -303,14 +285,14 @@ def task_summarizer():
     with col2:
         st.subheader("Task Summary Results")
         
-        # Display results if available
+
         if hasattr(st.session_state, 'tab5_current_employee') and st.session_state.tab5_current_employee:
             
-            # Employee info
+
             if st.session_state.tab5_employee_stats:
                 stats = st.session_state.tab5_employee_stats
                 
-                # Employee information
+
                 st.info(f"**{stats.get('employee_name', 'Unknown')}** ({st.session_state.tab5_current_employee})")
                 
                 col_info1, col_info2 = st.columns(2)
@@ -319,7 +301,7 @@ def task_summarizer():
                 with col_info2:
                     st.write(f"**Designation:** {stats.get('designation_name', 'N/A')}")
                 
-                # Employee statistics
+
                 col_a, col_b, col_c, col_d = st.columns(4)
                 with col_a:
                     st.metric("Total Hours", f"{stats.get('total_hours', 0) or 0:.1f}")
@@ -331,10 +313,10 @@ def task_summarizer():
                 
                 st.divider()
                 
-                # Project summaries section
+
                 if st.session_state.tab5_projects_data and st.session_state.tab5_project_summaries:
                     
-                    # Add project selection if multiple projects
+
                     project_ids = list(st.session_state.tab5_projects_data.keys())
                     if len(project_ids) > 1:
                         st.markdown("#### Project Selection")
@@ -358,10 +340,10 @@ def task_summarizer():
                     for project_id in selected_projects:
                         project_data = st.session_state.tab5_projects_data[project_id]
                         
-                        # Project header
+
                         st.markdown(f"### {project_data.get('project_name', project_id)}")
                         
-                        # Project details in a container
+
                         container = st.container()
                         with container:
                             col_x, col_y = st.columns(2)
@@ -372,12 +354,12 @@ def task_summarizer():
                                 st.write(f"**Total Hours:** {project_data.get('total_hours', 0):.1f}")
                                 st.write(f"**Number of Tasks:** {len(project_data.get('tasks', []))}")
                             
-                            # AI-generated summary
+
                             st.markdown("**AI Summary:**")
                             summary = st.session_state.tab5_project_summaries.get(project_id, "No summary available")
                             st.markdown(f"> {summary}")
                             
-                            # Show detailed tasks using toggle
+
                             show_details = st.toggle(
                                 f"Show Detailed Tasks",
                                 key=f"show_tasks_{project_id}",
@@ -388,7 +370,7 @@ def task_summarizer():
                                 st.markdown("** Detailed Tasks:**")
                                 tasks_df = pd.DataFrame(project_data.get('tasks', []))
                                 if not tasks_df.empty:
-                                    # Sort by date (most recent first)
+
                                     tasks_df = tasks_df.sort_values('date', ascending=False)
                                     st.dataframe(
                                         tasks_df,
@@ -405,13 +387,13 @@ def task_summarizer():
                         
                         st.divider()
                     
-                    # Download options
+
                     st.markdown("#### Download Reports")
                     
                     col_dl1, col_dl2 = st.columns(2)
                     
                     with col_dl1:
-                        # Create summary report
+
                         summary_report = {
                             "employee_code": st.session_state.tab5_current_employee,
                             "employee_info": st.session_state.tab5_employee_stats,
@@ -441,7 +423,7 @@ def task_summarizer():
                         )
                     
                     with col_dl2:
-                        # Create text summary
+
                         text_summary = f"TASK SUMMARY REPORT\n"
                         text_summary += f"Employee: {stats.get('employee_name', 'Unknown')} ({st.session_state.tab5_current_employee})\n"
                         text_summary += f"Department: {stats.get('department_name', 'N/A')}\n"
@@ -468,7 +450,7 @@ def task_summarizer():
                 else:
                     st.warning("No timesheet data found for this employee.")
                 
-                # Generation info
+
                 model_info = st.session_state.get('tab5_model_used', 'gemini-1.5-flash')
                 st.caption(f"Last generated: {st.session_state.tab5_summary_time} | Model: {model_info}")
             
@@ -478,7 +460,7 @@ def task_summarizer():
         else:
             st.info("👈 Select an employee and click 'Summarize Tasks' to see results.")
 
-# For standalone testing
+
 if __name__ == "__main__":
     st.set_page_config(
         page_title="Task Summarizer Tab",

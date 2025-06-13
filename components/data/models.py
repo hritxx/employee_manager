@@ -1,7 +1,3 @@
-"""
-Database models and table creation
-"""
-
 from components.data.database import db_pool
 import logging
 from tables import DatabaseTableCreator
@@ -10,9 +6,9 @@ from config import db_config
 logger = logging.getLogger(__name__)
 
 def create_tables():
-    """Create database tables if they don't exist"""
+
     try:
-        # Use DatabaseTableCreator from tables.py
+
         creator = DatabaseTableCreator()
         creator.connect_postgresql(
             host=db_config.host,

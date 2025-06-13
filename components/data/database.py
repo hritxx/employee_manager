@@ -1,7 +1,4 @@
 
-"""
-Database connection handler with connection pooling
-"""
 
 import psycopg2
 from psycopg2 import pool
@@ -13,7 +10,7 @@ from config import db_config
 logger = logging.getLogger(__name__)
 
 class DatabasePool:
-    """Database connection pool manager"""
+
     _instance = None
     _pool = None
 
@@ -24,7 +21,7 @@ class DatabasePool:
         return cls._instance
 
     def _initialize_pool(self):
-        """Initialize the connection pool"""
+
         try:
             self._pool = psycopg2.pool.SimpleConnectionPool(
                 minconn=1,
@@ -43,7 +40,6 @@ class DatabasePool:
 
     @contextmanager
     def get_connection(self) -> Generator:
-        """Get a connection from the pool"""
         conn = None
         try:
             conn = self._pool.getconn()
@@ -57,7 +53,7 @@ class DatabasePool:
 
     @contextmanager
     def get_cursor(self) -> Generator:
-        """Get a cursor from a pooled connection"""
+
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -71,18 +67,18 @@ class DatabasePool:
                 cursor.close()
 
     def close_all(self):
-        """Close all connections in the pool"""
+
         if self._pool:
             self._pool.closeall()
             logger.info("All database connections closed")
 
-# Global database pool instance
+
 db_pool = DatabasePool()
 
 def get_connection():
-    """Module-level function that returns the connection context manager"""
+
     return db_pool.get_connection()
 
 def get_cursor():
-    """Module-level function that returns the cursor context manager"""
+
     return db_pool.get_cursor()

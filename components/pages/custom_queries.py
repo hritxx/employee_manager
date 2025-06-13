@@ -3,17 +3,17 @@ import pandas as pd
 from components.utils.activity_logger import get_logger
 
 def render_custom_queries(engine):
-    """Render the custom queries interface"""
+
     st.header("Custom Query Builder")
     
-    # Get activity logger
+
     activity_logger = get_logger(engine)
 
-    # Cache the filter options to avoid repeated queries
+
     @st.cache_data
     def get_filter_options():
         try:
-            # Get list of employee names with null handling
+
             employee_query = """
                 SELECT DISTINCT employee_name 
                 FROM employee 
@@ -23,7 +23,6 @@ def render_custom_queries(engine):
             employee_names_df = pd.read_sql(employee_query, engine)
             employee_names = employee_names_df["employee_name"].tolist()
 
-            # Get list of departments with null handling
             dept_query = """
                 SELECT DISTINCT d.department_name 
                 FROM department d
@@ -34,7 +33,7 @@ def render_custom_queries(engine):
             departments_df = pd.read_sql(dept_query, engine)
             departments = departments_df["department_name"].tolist()
 
-            # Get list of projects with null handling
+
             proj_query = """
                 SELECT DISTINCT project_name 
                 FROM project 
@@ -49,7 +48,7 @@ def render_custom_queries(engine):
         except Exception as e:
             st.error(f"Error loading filter options: {e}")
             
-            # Log error
+
             activity_logger.log_event(
                 event_type="ERROR",
                 description=f"Error loading filter options: {str(e)}",
@@ -60,7 +59,6 @@ def render_custom_queries(engine):
 
     employee_names, departments, projects = get_filter_options()
 
-    # Create filter columns
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -72,7 +70,7 @@ def render_custom_queries(engine):
     with col3:
         selected_projects = st.multiselect("Select Projects", options=["All"] + projects, default=["All"])
 
-    # Create date range filter and employee status filter
+
     col4, col5, col6 = st.columns(3)
     with col4:
         start_date = st.date_input("Start Date", value=None)
@@ -81,18 +79,18 @@ def render_custom_queries(engine):
     with col6:
         employee_status = st.selectbox("Employee Status", options=["All", "Active", "Inactive"], index=0)
 
-    # Report type selection for custom query
+
     report_type = st.selectbox(
         "Select Report Type",
         ["Employee Details", "Project Assignments", "Attendance Records", "Timesheet Summary"]
     )
 
-    # Build the query
+
     if st.button("Generate Report", key="custom_query_report"):
         try:
-            df = pd.DataFrame()  # Initialize empty dataframe
-            query = ""  # Initialize query string
-            params = []  # Initialize params list
+            df = pd.DataFrame()  
+            query = "" 
+            params = [] 
 
             if report_type == "Employee Details":
                 query = """
@@ -115,7 +113,7 @@ def render_custom_queries(engine):
                     WHERE 1=1
                 """
 
-                # Add employee status filter
+
                 if employee_status == "Active":
                     query += " AND (e.status = 'Active' OR e.status IS NULL OR UPPER(e.status) IN ('ACTIVE', 'A'))"
                 elif employee_status == "Inactive":
@@ -150,7 +148,7 @@ def render_custom_queries(engine):
                     WHERE 1=1
                 """
 
-                # Add employee status filter
+
                 if employee_status == "Active":
                     query += " AND (e.status = 'Active' OR e.status IS NULL OR UPPER(e.status) IN ('ACTIVE', 'A'))"
                 elif employee_status == "Inactive":
@@ -200,7 +198,7 @@ def render_custom_queries(engine):
                     WHERE 1=1
                 """
 
-                # Add employee status filter
+
                 if employee_status == "Active":
                     query += " AND (e.status = 'Active' OR e.status IS NULL OR UPPER(e.status) IN ('ACTIVE', 'A'))"
                 elif employee_status == "Inactive":
@@ -247,7 +245,7 @@ def render_custom_queries(engine):
                     WHERE 1=1
                 """
 
-                # Add employee status filter
+
                 if employee_status == "Active":
                     query += " AND (e.status = 'Active' OR e.status IS NULL OR UPPER(e.status) IN ('ACTIVE', 'A'))"
                 elif employee_status == "Inactive":
@@ -281,7 +279,7 @@ def render_custom_queries(engine):
 
                 df = pd.read_sql(query, engine, params=tuple(params))
 
-            # Log the query
+
             query_details = {
                 "report_type": report_type,
                 "filters": {
@@ -294,7 +292,7 @@ def render_custom_queries(engine):
                 }
             }
             
-            # Log the query execution
+
             activity_logger.log_query(
                 query_text=query,
                 user=st.session_state.get('username', 'unknown'),
@@ -302,12 +300,12 @@ def render_custom_queries(engine):
                 status="SUCCESS"
             )
 
-            # Display results
+
             if not df.empty:
                 st.subheader(f"{report_type} Report")
                 st.dataframe(df, use_container_width=True)
                 
-                # Add download button
+
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="Download CSV",
@@ -318,7 +316,7 @@ def render_custom_queries(engine):
             else:
                 st.info("No data found matching your criteria")
                 
-                # Log empty result
+
                 activity_logger.log_event(
                     event_type="QUERY_RESULT",
                     description=f"Custom query returned no results: {report_type}",
@@ -329,7 +327,7 @@ def render_custom_queries(engine):
         except Exception as e:
             st.error(f"Error executing query: {e}")
             
-            # Log error
+
             activity_logger.log_event(
                 event_type="ERROR",
                 description=f"Custom query error: {str(e)}",

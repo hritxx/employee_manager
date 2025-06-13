@@ -6,11 +6,10 @@ import re
 from datetime import datetime, date
 import logging
 
-# Set up logging
+
 logger = logging.getLogger(__name__)
 
 class CustomJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder to handle timestamps, dates, and NaN values"""
     def default(self, obj):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
@@ -22,16 +21,7 @@ class CustomJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 def get_database_context(engine, get_available_tables_func):
-    """
-    Get database schema and sample data for AI context
-    
-    Args:
-        engine: SQLAlchemy engine object
-        get_available_tables_func: Function that returns list of available tables
-    
-    Returns:
-        tuple: (table_schema, sample_data)
-    """
+
     table_schema = {}
     sample_data = {}
     available_tables = get_available_tables_func()
@@ -42,7 +32,7 @@ def get_database_context(engine, get_available_tables_func):
 
     for table in available_tables:
         try:
-            # Get table schema
+
             schema_query = f"""
                 SELECT column_name, data_type, 
                        is_nullable, column_default,
@@ -54,7 +44,7 @@ def get_database_context(engine, get_available_tables_func):
             schema_df = pd.read_sql(schema_query, engine)
             table_schema[table] = schema_df.to_dict(orient='records')
 
-            # Get sample data (first 5 rows)
+
             sample_query = f"SELECT * FROM {table} LIMIT 5"
             sample_df = pd.read_sql(sample_query, engine)
             sample_data[table] = sample_df.to_dict(orient='records')
@@ -66,18 +56,7 @@ def get_database_context(engine, get_available_tables_func):
     return table_schema, sample_data
 
 def generate_sql_query(user_query, table_schema, sample_data, gemini_api_key):
-    """
-    Generate SQL query using Gemini API
-    
-    Args:
-        user_query: Natural language query from user
-        table_schema: Dictionary containing table schemas
-        sample_data: Dictionary containing sample data from tables
-        gemini_api_key: Gemini API key
-    
-    Returns:
-        str: Generated SQL query or None if failed
-    """
+
     if not gemini_api_key:
         st.error("GEMINI_API_KEY not found in environment variables. Please set it in your .env file.")
         return None
@@ -161,16 +140,6 @@ SELECT * FROM table;
         return None
 
 def execute_sql_query(sql_query, engine):
-    """
-    Execute SQL query and return results
-    
-    Args:
-        sql_query: SQL query string
-        engine: SQLAlchemy engine object
-    
-    Returns:
-        pandas.DataFrame: Query results or None if failed
-    """
     try:
         result_df = pd.read_sql(sql_query, engine)
         return result_df
@@ -180,18 +149,9 @@ def execute_sql_query(sql_query, engine):
 
 @st.cache_data
 def cached_get_database_context(_engine, _get_available_tables_func):
-    """Cached version of get_database_context to improve performance"""
     return get_database_context(_engine, _get_available_tables_func)
 
 def render_ai_query_assistant(engine, get_available_tables_func, gemini_api_key):
-    """
-    Render the AI Query Assistant interface
-    
-    Args:
-        engine: SQLAlchemy engine object
-        get_available_tables_func: Function that returns list of available tables
-        gemini_api_key: Gemini API key
-    """
     st.header("AI Query Assistant")
     st.info("Describe what you want to find out in plain English, and let AI generate the SQL query for you.")
 
@@ -206,27 +166,22 @@ def render_ai_query_assistant(engine, get_available_tables_func, gemini_api_key)
         else:
             with st.spinner("Generating SQL query..."):
                 try:
-                    # Get database schema information for context
                     table_schema, sample_data = cached_get_database_context(engine, get_available_tables_func)
 
                     if not table_schema:
                         st.error("No table information available. Please check your database setup.")
                         return
 
-                    # Generate SQL query using AI
                     sql_query = generate_sql_query(user_query, table_schema, sample_data, gemini_api_key)
                     
                     if sql_query:
-                        # Display the generated SQL
                         st.subheader("Generated SQL Query:")
                         st.code(sql_query, language="sql")
 
-                        # Execute the query
                         with st.spinner("Executing query..."):
                             result_df = execute_sql_query(sql_query, engine)
                             
                             if result_df is not None:
-                                # Store results and display
                                 st.session_state.current_df = result_df
                                 st.subheader("Query Results:")
                                 st.dataframe(result_df)

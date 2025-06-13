@@ -1,4 +1,3 @@
-# summary_reports.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,7 +7,7 @@ import numpy as np
 from components.data.database import get_cursor
 
 def show_available_tables():
-    """Helper function to show available tables"""
+
     try:
         with get_cursor() as cursor:
             cursor.execute("""
@@ -29,7 +28,7 @@ def show_available_tables():
         st.error(f"Error fetching tables: {e}")
 
 def get_exit_report():
-    """Get employee exit report with tenure calculations"""
+
     try:
         with get_cursor() as cursor:
             query = """
@@ -62,7 +61,7 @@ def get_exit_report():
         return pd.DataFrame()
 
 def get_experience_report():
-    """Get employee experience report with categorization"""
+
     try:
         with get_cursor() as cursor:
             query = """
@@ -99,7 +98,6 @@ def get_experience_report():
         return pd.DataFrame()
 
 def get_work_profile_report():
-    """Get employee work profile with project allocation details"""
     try:
         with get_cursor() as cursor:
             query = """
@@ -155,7 +153,6 @@ def get_work_profile_report():
         return pd.DataFrame()
 
 def get_attendance_report():
-    """Get attendance report for last 30 days"""
     try:
         with get_cursor() as cursor:
             query = """
@@ -204,7 +201,6 @@ def get_attendance_report():
         return pd.DataFrame()
 
 def get_department_summary():
-    """Get department-wise summary statistics with accurate counts"""
     try:
         with get_cursor() as cursor:
             query = """
@@ -251,7 +247,6 @@ def get_department_summary():
         return pd.DataFrame()
 
 def get_detailed_department_analysis():
-    """Get more detailed department analysis with additional metrics"""
     try:
         with get_cursor() as cursor:
             query = """
@@ -301,7 +296,6 @@ def get_detailed_department_analysis():
         return pd.DataFrame()
 
 def get_department_hierarchy():
-    """Get department hierarchy information"""
     try:
         with get_cursor() as cursor:
             query = """
@@ -313,7 +307,7 @@ def get_department_hierarchy():
                     business_unit,
                     parent_department,
                     0 as level,
-                    department_name as hierarchy_path
+                    department_name::VARCHAR as hierarchy_path
                 FROM department 
                 WHERE parent_department IS NULL AND status = 'Active'
                 
@@ -354,14 +348,8 @@ def get_department_hierarchy():
         return pd.DataFrame()
 
 def render_summary_reports():
-    """Main function to render the Summary Reports tab"""
     st.header("Summary Reports")
     
-    # # Show available tables for debugging
-    # with st.expander("Debug: Available Tables"):
-    #     show_available_tables()
-    
-    # Create tabs for different summary reports
     summary_tabs = st.tabs(["Exit Report", "Experience Report", "Work Profile", "Attendance Report", "Department Summary"])
     
     
@@ -372,7 +360,7 @@ def render_summary_reports():
                 if not exit_data.empty:
                     st.dataframe(exit_data, use_container_width=True)
                     
-                    # Exit summary
+
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Total Exits", len(exit_data))
@@ -380,7 +368,6 @@ def render_summary_reports():
                         avg_tenure = exit_data['tenure_months'].mean()
                         st.metric("Avg Tenure", f"{avg_tenure:.1f} months")
                     with col3:
-                        # Convert exit_date to datetime if it's not already
                         exit_data['exit_date'] = pd.to_datetime(exit_data['exit_date'])
                         recent_exits = len(exit_data[exit_data['exit_date'] >= pd.Timestamp.now() - pd.DateOffset(months=3)])
                         st.metric("Recent Exits (3m)", recent_exits)
@@ -402,7 +389,7 @@ def render_summary_reports():
                                           options=exp_data['experience_level'].unique(),
                                           default=exp_data['experience_level'].unique())
             
-            # Apply filters
+
             filtered_exp_data = exp_data[
                 (exp_data['department_name'].isin(dept_filter)) &
                 (exp_data['experience_level'].isin(exp_filter))
@@ -410,13 +397,13 @@ def render_summary_reports():
             
             st.dataframe(filtered_exp_data, use_container_width=True)
             
-            # Experience level distribution
+
             exp_level_dist = filtered_exp_data['experience_level'].value_counts()
             fig = px.pie(values=exp_level_dist.values, names=exp_level_dist.index,
                         title="Experience Level Distribution")
             st.plotly_chart(fig, use_container_width=True)
             
-            # Department-wise experience
+
             dept_exp = filtered_exp_data.groupby('department_name')['total_experience'].mean().sort_values(ascending=False)
             fig2 = px.bar(x=dept_exp.index, y=dept_exp.values,
                          title="Average Experience by Department")
@@ -445,12 +432,12 @@ def render_summary_reports():
             
                 
             
-            # Project distribution
+
             fig = px.histogram(work_data, x='total_projects',
                              title="Project Count Distribution")
             st.plotly_chart(fig, use_container_width=True)
             
-            # Allocation vs Hours scatter plot
+
             fig2 = px.scatter(work_data, x='total_allocation_percentage', y='hours_last_30_days',
                              hover_data=['employee_name', 'department_name'],
                              title="Allocation % vs Hours Logged (Last 30 Days)")
@@ -462,7 +449,7 @@ def render_summary_reports():
         st.subheader("Attendance Report (Last 30 Days)")
         attend_data = get_attendance_report()
         if not attend_data.empty:
-            # Add department filter
+
             dept_filter = st.multiselect("Filter by Department", 
                                        options=attend_data['department_name'].unique(),
                                        default=attend_data['department_name'].unique(),
@@ -472,7 +459,7 @@ def render_summary_reports():
             
             st.dataframe(filtered_attend_data, use_container_width=True)
             
-            # Attendance metrics
+
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 avg_attendance = filtered_attend_data['attendance_percentage'].mean()
@@ -487,7 +474,7 @@ def render_summary_reports():
                 avg_hours = filtered_attend_data['avg_hours_per_day'].mean()
                 st.metric("Avg Hours/Day", f"{avg_hours:.1f}")
             
-            # Attendance chart
+
             top_20 = filtered_attend_data.head(20)
             fig = px.bar(top_20, x='employee_name', y='attendance_percentage',
                         title="Attendance Percentage - Top 20 Employees",
@@ -505,29 +492,8 @@ def render_summary_reports():
         else:
             st.info("No attendance data available.")
     
-    # with summary_tabs[4]:  # Department Summary
-    #     st.subheader("Department Summary")
-    #     dept_data = get_department_summary()
-    #     if not dept_data.empty:
-    #         st.dataframe(dept_data, use_container_width=True)
-            
-    #         # Department metrics
-    #         col1, col2 = st.columns(2)
-    #         with col1:
-    #             # Employee distribution by department
-    #             fig = px.pie(dept_data, values='total_employees', names='department_name',
-    #                        title="Employee Distribution by Department")
-    #             st.plotly_chart(fig, use_container_width=True)
-            
-    #         with col2:
-    #             # Average experience by department
-    #             fig2 = px.bar(dept_data, x='department_name', y='avg_experience',
-    #                          title="Average Experience by Department")
-    #             fig2.update_xaxes(tickangle=45)
-    #             st.plotly_chart(fig2, use_container_width=True)
-    #     else:
-    #         st.info("No department data available.")
-    with summary_tabs[4]:  # Department Summary
+  
+    with summary_tabs[4]:  
         st.subheader("Department Summary")
         
         # Add filter options
@@ -540,7 +506,7 @@ def render_summary_reports():
             )
 
         
-        # Get data based on selected view
+
         if view_option == "Basic Summary":
             dept_data = get_department_summary()
         elif view_option == "Detailed Analysis":
@@ -549,15 +515,15 @@ def render_summary_reports():
             dept_data = get_department_hierarchy()
         
         if not dept_data.empty:
-            # Display data table
+
             st.dataframe(dept_data, use_container_width=True)
             
-            # Show visualizations only for basic and detailed views
+
             if view_option in ["Basic Summary", "Detailed Analysis"]:
                 st.markdown("---")
                 st.subheader("Department Analytics")
                 
-                # Key metrics row
+
                 if 'total_employees' in dept_data.columns:
                     metric_cols = st.columns(4)
                     with metric_cols[0]:
@@ -575,11 +541,11 @@ def render_summary_reports():
                             total_projects = dept_data['total_projects'].sum()
                             st.metric("Total Projects", total_projects)
                 
-                # Visualization row 1
+
                 viz_col1, viz_col2 = st.columns(2)
                 
                 with viz_col1:
-                    # Employee distribution pie chart
+
                     if 'total_employees' in dept_data.columns and dept_data['total_employees'].sum() > 0:
                         fig_pie = px.pie(
                             dept_data[dept_data['total_employees'] > 0], 
@@ -594,7 +560,7 @@ def render_summary_reports():
                         st.info("No employee data to display")
                 
                 with viz_col2:
-                    # Average experience bar chart
+
                     if 'avg_experience' in dept_data.columns:
                         fig_exp = px.bar(
                             dept_data.sort_values('avg_experience', ascending=True), 
@@ -608,12 +574,12 @@ def render_summary_reports():
                         fig_exp.update_layout(height=400)
                         st.plotly_chart(fig_exp, use_container_width=True)
                 
-                # Visualization row 2 (for detailed analysis)
+
                 if view_option == "Detailed Analysis" and 'active_employee_percentage' in dept_data.columns:
                     viz_col3, viz_col4 = st.columns(2)
                     
                     with viz_col3:
-                        # Active vs Inactive employees
+
                         fig_status = px.bar(
                             dept_data, 
                             x='department_name', 
@@ -625,30 +591,42 @@ def render_summary_reports():
                         st.plotly_chart(fig_status, use_container_width=True)
                     
                     with viz_col4:
-                        # Projects per employee ratio
+
                         if 'projects_per_employee' in dept_data.columns:
                             fig_ratio = px.scatter(
-                                dept_data, 
-                                x='active_employees', 
-                                y='projects_per_employee',
-                                size='total_projects',
-                                hover_data=['department_name', 'business_unit'],
-                                title="Projects per Employee vs Team Size",
-                                color='business_unit'
-                            )
+                            dept_data, 
+                            x='active_employees', 
+                            y='projects_per_employee',
+                            size='active_projects',  
+                            hover_data=['department_name', 'business_unit'],
+                            title="Projects per Employee vs Team Size",
+                            color='business_unit'
+                        )
                             st.plotly_chart(fig_ratio, use_container_width=True)
                 
-                # Business unit analysis
+
                 if 'business_unit' in dept_data.columns:
                     st.markdown("---")
                     st.subheader("Business Unit Analysis")
                     
-                    bu_summary = dept_data.groupby('business_unit').agg({
+
+                    available_columns = dept_data.columns.tolist()
+                    agg_dict = {
                         'total_employees': 'sum',
-                        'active_employees': 'sum' if 'active_employees' in dept_data.columns else 'sum',
-                        'avg_experience': 'mean',
                         'department_name': 'count'
-                    }).round(2)
+                    }
+
+
+                    if 'active_employees' in available_columns:
+                        agg_dict['active_employees'] = 'sum'
+
+
+                    if 'avg_active_experience' in available_columns:
+                        agg_dict['avg_active_experience'] = 'mean'
+                    elif 'avg_experience' in available_columns:  
+                        agg_dict['avg_experience'] = 'mean'
+
+                    bu_summary = dept_data.groupby('business_unit').agg(agg_dict).round(2)
                     
                     if 'active_employees' not in dept_data.columns:
                         bu_summary = bu_summary.drop('active_employees', axis=1)
@@ -665,7 +643,7 @@ def render_summary_reports():
                         st.dataframe(bu_summary, use_container_width=True)
                     
                     with col_bu2:
-                        # Business unit employee distribution
+
                         fig_bu = px.bar(
                             bu_summary.reset_index(), 
                             x='business_unit', 
@@ -677,12 +655,12 @@ def render_summary_reports():
                         st.plotly_chart(fig_bu, use_container_width=True)
             
             elif view_option == "Department Hierarchy":
-                # Hierarchy-specific visualizations
+
                 if 'level' in dept_data.columns and not dept_data.empty:
                     st.markdown("---")
                     st.subheader("Hierarchy Insights")
                     
-                    # Hierarchy level distribution
+
                     level_dist = dept_data.groupby('level').agg({
                         'department_name': 'count',
                         'active_employee_count': 'sum'
@@ -711,7 +689,7 @@ def render_summary_reports():
         else:
             st.info("No department data available for the selected view.")
         
-        # Export options
+
         if not dept_data.empty:
             st.markdown("---")
             export_col1, export_col2 = st.columns([1, 3])
@@ -725,7 +703,7 @@ def render_summary_reports():
                         mime="text/csv"
                     )
 
-# Export functions for use in other modules
+
 __all__ = [
     'get_exit_report',
     'get_experience_report', 

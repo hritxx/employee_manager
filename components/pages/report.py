@@ -12,7 +12,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 def create_project_document_report(project_data, project_info, weekly_hours_data, title):
-    """Create a comprehensive document-style PDF report with clean, non-repetitive content"""
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
     elements = []
@@ -89,16 +89,16 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
     if not project_data.empty:
         elements.append(Paragraph("TEAM COMPOSITION & ALLOCATION HISTORY", heading_style))
         
-        # Get unique employees first to avoid duplicates
+
         unique_employees = project_data['employee_code'].unique()
         
         for emp_code in unique_employees:
             emp_data = project_data[project_data['employee_code'] == emp_code]
-            emp_info = emp_data.iloc[0]  # Get basic employee info
+            emp_info = emp_data.iloc[0] 
             
             elements.append(Paragraph(f"{emp_info['employee_name']} ({emp_code})", subheading_style))
             
-            # Employee basic details (shown once)
+
             emp_details = f"""
             <b>Designation:</b> {emp_info.get('designation_name', 'N/A')}<br/>
             <b>Department:</b> {emp_info.get('department_name', 'N/A')}<br/>
@@ -108,7 +108,7 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
             elements.append(Paragraph(emp_details, styles['Normal']))
             elements.append(Spacer(1, 8))
             
-            # Clean allocation history - remove duplicates based on key fields
+
             allocation_columns = ['effective_from', 'effective_to', 'allocation_percentage', 'allocation_status', 'change_reason']
             unique_allocations = emp_data[allocation_columns].drop_duplicates()
             
@@ -116,21 +116,21 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
                 elements.append(Paragraph("<b>Allocation History:</b>", styles['Normal']))
                 
                 for _, allocation in unique_allocations.iterrows():
-                    # Format duration
+
                     duration_text = f"From {allocation['effective_from']}"
                     if pd.notna(allocation['effective_to']) and allocation['effective_to']:
                         duration_text += f" to {allocation['effective_to']}"
                     else:
                         duration_text += " (Current)"
                     
-                    # Build allocation text
+
                     alloc_text = f"""
                     • <b>Period:</b> {duration_text}<br/>
                       <b>Allocation:</b> {allocation['allocation_percentage']}%<br/>
                       <b>Status:</b> {allocation['allocation_status']}<br/>
                     """
                     
-                    # Add reason if available and not empty
+
                     if pd.notna(allocation.get('change_reason')) and allocation.get('change_reason'):
                         alloc_text += f"      <b>Reason:</b> {allocation['change_reason']}<br/>"
                     
@@ -138,11 +138,11 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
             
             elements.append(Spacer(1, 12))
     
-    # Weekly Hours Analysis Section
+
     if not weekly_hours_data.empty:
         elements.append(Paragraph("WEEKLY HOURS ANALYSIS", heading_style))
         
-        # Get unique employees from hours data
+
         unique_hour_employees = weekly_hours_data['employee_code'].unique()
         
         for emp_code in unique_hour_employees:
@@ -151,11 +151,11 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
             
             elements.append(Paragraph(f"{emp_name} ({emp_code}) - Weekly Hours Breakdown", subheading_style))
             
-            # Convert to datetime for proper grouping
+
             emp_hours = emp_hours.copy()
             emp_hours['work_date'] = pd.to_datetime(emp_hours['work_date'])
             
-            # Group by week (Monday as week start)
+
             emp_hours['week_start'] = emp_hours['work_date'] - pd.to_timedelta(emp_hours['work_date'].dt.dayofweek, unit='d')
             
             weekly_summary = emp_hours.groupby('week_start').agg({
@@ -163,7 +163,7 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
                 'work_date': 'count'
             }).rename(columns={'work_date': 'days_worked'}).sort_index()
             
-            # Display weekly summary
+
             for week_start, week_data in weekly_summary.iterrows():
                 week_end = week_start + timedelta(days=6)
                 avg_hours_per_day = week_data['hours_worked'] / week_data['days_worked'] if week_data['days_worked'] > 0 else 0
@@ -176,7 +176,7 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
                 """
                 elements.append(Paragraph(week_text, styles['Normal']))
             
-            # Monthly summary for this employee
+
             emp_hours['month'] = emp_hours['work_date'].dt.to_period('M')
             monthly_summary = emp_hours.groupby('month')['hours_worked'].sum().sort_index()
             
@@ -188,18 +188,18 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
             
             elements.append(Spacer(1, 16))
     
-    # Project Statistics Section
+
     if not project_data.empty:
         elements.append(Paragraph("PROJECT STATISTICS", heading_style))
         
-        # Calculate statistics on unique data
+
         total_employees = project_data['employee_code'].nunique()
         current_employees = project_data[project_data['allocation_status'] == 'Active']['employee_code'].nunique()
         
-        # Calculate average allocation for active employees
+
         active_allocations = project_data[project_data['allocation_status'] == 'Active']
         if not active_allocations.empty:
-            # Get the latest allocation for each active employee to avoid duplicates
+
             latest_allocations = active_allocations.sort_values('effective_from').groupby('employee_code').tail(1)
             avg_allocation = latest_allocations['allocation_percentage'].mean()
         else:
@@ -214,7 +214,7 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
         if not weekly_hours_data.empty:
             total_hours = weekly_hours_data['hours_worked'].sum()
             
-            # Calculate average weekly hours per employee
+
             weekly_hours_data_copy = weekly_hours_data.copy()
             weekly_hours_data_copy['work_date'] = pd.to_datetime(weekly_hours_data_copy['work_date'])
             weekly_hours_data_copy['week'] = weekly_hours_data_copy['work_date'].dt.isocalendar().week
@@ -231,7 +231,7 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
         elements.append(Paragraph(stats_text, styles['Normal']))
         elements.append(Spacer(1, 16))
     
-    # Summary Section
+
     elements.append(Paragraph("SUMMARY", heading_style))
     summary_text = """
     This report provides a comprehensive overview of the project including team composition, 
@@ -240,31 +240,30 @@ def create_project_document_report(project_data, project_info, weekly_hours_data
     """
     elements.append(Paragraph(summary_text, styles['Normal']))
     
-    # Build and return the document
+
     doc.build(elements)
     buffer.seek(0)
     return buffer
 def render_standard_reports(engine=None, db_pool=None):
-    """Main function to display standard reports - called from app.py tab 5"""
+
     st.header("Standard Reports")
     
-    # Create sub-tabs for different report types
+
     report_tabs = st.tabs(["📁 Project Master", "👥 Employee Master"])
     
-    # Tab 1: Project Master Report
+
     with report_tabs[0]:
         show_project_master_report(engine, db_pool)
     
-    # Tab 2: Employee Master Report
+
     with report_tabs[1]:
         show_employee_master_report(engine, db_pool)
 
 def show_project_master_report(engine=None, db_pool=None):
-    """Display Enhanced Project Master Report"""
     st.subheader("Project Master Report")
 
     
-    # Get projects from database
+
     try:
         projects_df = run_query("SELECT project_id, project_name, client_name, status FROM project ORDER BY project_name", engine, db_pool)
         
@@ -273,24 +272,24 @@ def show_project_master_report(engine=None, db_pool=None):
             selected_project = st.selectbox("Choose Project", project_options, key="project_master_selector")
             
             if selected_project != "Select a Project":
-                # Extract project_id from selection
+
                 project_id = selected_project.split("(")[-1].rstrip(")")
                 project_name = selected_project.split(" (")[0]
                 
-                # Date range filter
+
                 col1, col2 = st.columns(2)
                 with col1:
                     start_date = st.date_input("📅 From Date", value=datetime.now() - timedelta(days=90), key="proj_start_date")
                 with col2:
                     end_date = st.date_input("📅 To Date", value=datetime.now(), key="proj_end_date")
                 
-                # Get comprehensive project data
+
                 project_info = get_project_info(project_id, engine, db_pool)
                 project_data = get_project_allocation_history(project_id, engine, db_pool)
                 weekly_hours_data = get_project_weekly_hours(project_id, start_date, end_date, engine, db_pool)
                 
                 if not project_data.empty:
-                    # Display project overview
+
                     st.markdown("### Project Overview")
                     if not project_info.empty:
                         proj_info = project_info.iloc[0]
@@ -307,7 +306,7 @@ def show_project_master_report(engine=None, db_pool=None):
                                 duration = f"{(end - start).days} days"
                             st.metric("Duration", duration)
                     
-                    # Team summary
+
                     st.markdown("### 👥 Team Summary")
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
@@ -319,10 +318,10 @@ def show_project_master_report(engine=None, db_pool=None):
 
 
                     
-                    # Team composition with segregation
+
                     st.markdown("###  Team Composition & History")
                     
-                    # Separate current and past employees
+
                     current_employees = project_data[
                         (project_data['allocation_status'] == 'Active') & 
                         (project_data['effective_to'].isna())
@@ -332,12 +331,12 @@ def show_project_master_report(engine=None, db_pool=None):
                         ~project_data['employee_code'].isin(current_employees)
                     ]['employee_code'].unique()
                     
-                    # Remove duplicates from project_data
+
                     project_data_clean = project_data.drop_duplicates(
                         subset=['employee_code', 'effective_from', 'effective_to', 'allocation_percentage']
                     ).sort_values(['employee_code', 'effective_from'])
                     
-                    # Current Team Members
+
                     if len(current_employees) > 0:
                         st.markdown("####  **Current Team Members**")
                         
@@ -345,7 +344,7 @@ def show_project_master_report(engine=None, db_pool=None):
                             emp_data = project_data_clean[project_data_clean['employee_code'] == emp_code]
                             emp_info = emp_data.iloc[0]
                             
-                            # Get current allocation
+
                             current_allocation = emp_data[
                                 (emp_data['allocation_status'] == 'Active') & 
                                 (emp_data['effective_to'].isna())
@@ -389,12 +388,12 @@ def show_project_master_report(engine=None, db_pool=None):
                                         st.markdown("")
                                 
                                 with col2:
-                                    # Weekly hours for this employee
+
                                     emp_hours = weekly_hours_data[weekly_hours_data['employee_code'] == emp_code]
                                     if not emp_hours.empty:
                                         st.markdown("**Recent Hours Summary:**")
                                         
-                                        # Create weekly summary
+
                                         emp_hours['week'] = pd.to_datetime(emp_hours['work_date']).dt.isocalendar().week
                                         emp_hours['year'] = pd.to_datetime(emp_hours['work_date']).dt.year
                                         weekly_summary = emp_hours.groupby(['year', 'week']).agg({
@@ -413,7 +412,7 @@ def show_project_master_report(engine=None, db_pool=None):
                                     else:
                                         st.markdown("*No timesheet data available*")
                     
-                    # Past Team Members
+
                     if len(past_employees) > 0:
                         st.markdown("####  **Past Team Members**")
                         
@@ -421,7 +420,7 @@ def show_project_master_report(engine=None, db_pool=None):
                             emp_data = project_data_clean[project_data_clean['employee_code'] == emp_code]
                             emp_info = emp_data.iloc[0]
                             
-                            # Calculate total days worked
+
                             total_days = 0
                             for _, allocation in emp_data.iterrows():
                                 if pd.notna(allocation['effective_to']):
@@ -457,7 +456,7 @@ def show_project_master_report(engine=None, db_pool=None):
                                             st.markdown("")
                                 
                                 with col2:
-                                    # Historical hours for this employee
+
                                     emp_hours = weekly_hours_data[weekly_hours_data['employee_code'] == emp_code]
                                     if not emp_hours.empty:
                                         st.markdown("**Historical Hours:**")
@@ -469,11 +468,11 @@ def show_project_master_report(engine=None, db_pool=None):
                                     else:
                                         st.markdown("*No timesheet data available*")
                     
-                    # Hours analysis chart
+
                     if not weekly_hours_data.empty:
                         st.markdown("###  Hours Analysis")
                         
-                        # Weekly hours chart
+
                         weekly_chart_data = weekly_hours_data.copy()
                         weekly_chart_data['week_start'] = pd.to_datetime(weekly_chart_data['work_date']) - pd.to_timedelta(pd.to_datetime(weekly_chart_data['work_date']).dt.dayofweek, unit='d')
                         weekly_totals = weekly_chart_data.groupby(['week_start', 'employee_name'])['hours_worked'].sum().reset_index()
@@ -482,7 +481,7 @@ def show_project_master_report(engine=None, db_pool=None):
                                    title='Weekly Hours by Employee', labels={'week_start': 'Week', 'hours_worked': 'Hours'})
                         st.plotly_chart(fig, use_container_width=True)
                     
-                    # Download options
+
                     st.markdown("### Download Report")
                     col1, col2 = st.columns(2)
                     
@@ -505,7 +504,7 @@ def show_project_master_report(engine=None, db_pool=None):
                                 st.error(f"Error generating report: {str(e)}")
                     
                     with col2:
-                        # CSV export for raw data
+
                         combined_data = project_data.merge(
                             weekly_hours_data.groupby('employee_code').agg({
                                 'hours_worked': 'sum'
@@ -532,17 +531,17 @@ def show_project_master_report(engine=None, db_pool=None):
 
 
 
-# Enhanced database functions
+
 def run_query(query, engine=None, db_pool=None):
-    """Execute SQL query and return results as DataFrame"""
+
     try:
         if engine:
             df = pd.read_sql(query, engine)
         elif db_pool:
-            # Implement your pool connection logic here
+
             df = pd.read_sql(query, db_pool)
         else:
-            # Return empty DataFrame if no connection
+
             return pd.DataFrame()
         return df
     except Exception as e:
@@ -550,7 +549,7 @@ def run_query(query, engine=None, db_pool=None):
         return pd.DataFrame()
 
 def get_project_info(project_id, engine=None, db_pool=None):
-    """Get basic project information"""
+
     query = f"""
     SELECT project_id, project_name, client_name, status, start_date, end_date
     FROM project 
@@ -559,7 +558,7 @@ def get_project_info(project_id, engine=None, db_pool=None):
     return run_query(query, engine, db_pool)
 
 def get_project_allocation_history(project_id, engine=None, db_pool=None):
-    """Get comprehensive project allocation history with employee details"""
+
     query = f"""
     SELECT 
         pa.allocation_id,
@@ -588,7 +587,7 @@ def get_project_allocation_history(project_id, engine=None, db_pool=None):
     return run_query(query, engine, db_pool)
 
 def get_project_weekly_hours(project_id, start_date, end_date, engine=None, db_pool=None):
-    """Get weekly hours data for project within date range"""
+
     query = f"""
     SELECT 
         t.employee_code,

@@ -6,20 +6,20 @@ from datetime import datetime
 import os
 from typing import Dict, List, Optional
 
-# Configure logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 class DatabaseSeeder:
     def __init__(self, db_config: Dict[str, str]):
-        """Initialize database connection"""
+
         self.db_config = db_config
         self.conn = None
         self.cursor = None
 
     def connect(self):
-        """Establish database connection"""
+
         try:
             self.conn = psycopg2.connect(**self.db_config)
             self.cursor = self.conn.cursor()
@@ -29,7 +29,7 @@ class DatabaseSeeder:
             raise
 
     def disconnect(self):
-        """Close database connection"""
+
         if self.cursor:
             self.cursor.close()
         if self.conn:
@@ -37,7 +37,7 @@ class DatabaseSeeder:
         logger.info("Database connection closed")
 
     def execute_query(self, query: str, params=None):
-        """Execute a query with optional parameters"""
+
         try:
             if params:
                 self.cursor.execute(query, params)
@@ -50,7 +50,7 @@ class DatabaseSeeder:
             raise
 
     def check_table_constraints(self, table_name: str):
-        """Check what constraints exist on a table"""
+
         query = """
         SELECT 
             conname as constraint_name,
@@ -72,60 +72,57 @@ class DatabaseSeeder:
 
     def bulk_insert_safe(self, table: str, columns: List[str], data: List[tuple],
                         primary_key_columns: Optional[List[str]] = None):
-        """Perform bulk insert with safe conflict handling"""
+
         if not data:
             logger.warning(f"No data to insert into {table}")
             return
 
-        # Check existing constraints
+
         constraints = self.check_table_constraints(table)
         logger.info(f"Found constraints for {table}: {constraints}")
 
-        # Try to find a suitable unique constraint
-        unique_constraints = [c for c in constraints if c[1] == 'u']  # 'u' for unique
-        primary_constraints = [c for c in constraints if c[1] == 'p']  # 'p' for primary key
 
-        # Base insert query
+        unique_constraints = [c for c in constraints if c[1] == 'u'] 
+        primary_constraints = [c for c in constraints if c[1] == 'p']  
+
+
         base_query = f"INSERT INTO {table} ({','.join(columns)}) VALUES %s"
 
-        # Handle different tables differently
+
         if table == 'employee_exit':
-            # For employee_exit, we want to update if the record exists
+
             conflict_cols = ['employee_code']
             update_cols = ['exit_date', 'last_working_date', 'exit_reason', 'exit_comments']
             conflict_action = f"ON CONFLICT (employee_code) DO UPDATE SET " + \
                             ", ".join(f"{col} = EXCLUDED.{col}" for col in update_cols)
             query = f"{base_query} {conflict_action}"
         elif table == 'attendance':
-            # For attendance, update if record exists for same employee and date
+
             conflict_cols = ['employee_code', 'attendance_date']
             update_cols = ['clock_in_time', 'clock_out_time', 'attendance_type']
             conflict_action = f"ON CONFLICT (employee_code, attendance_date) DO UPDATE SET " + \
                             ", ".join(f"{col} = EXCLUDED.{col}" for col in update_cols)
             query = f"{base_query} {conflict_action}"
         elif table == 'timesheet':
-            # For timesheet, update if record exists for same employee, project and date
+
             conflict_cols = ['employee_code', 'project_id', 'work_date']
             update_cols = ['hours_worked', 'task_description']
             conflict_action = f"ON CONFLICT (employee_code, project_id, work_date) DO UPDATE SET " + \
                             ", ".join(f"{col} = EXCLUDED.{col}" for col in update_cols)
             query = f"{base_query} {conflict_action}"
         elif primary_constraints:
-            # Use primary key constraint
-            pk_columns = primary_constraints[0][2]  # Get columns from first primary key
+
+            pk_columns = primary_constraints[0][2] 
             conflict_clause = f"ON CONFLICT ({','.join(pk_columns)}) DO NOTHING"
             query = f"{base_query} {conflict_clause}"
         elif unique_constraints:
-            # Use first unique constraint found
             unique_columns = unique_constraints[0][2]
             conflict_clause = f"ON CONFLICT ({','.join(unique_columns)}) DO NOTHING"
             query = f"{base_query} {conflict_clause}"
         elif primary_key_columns:
-            # Use specified primary key columns
             conflict_clause = f"ON CONFLICT ({','.join(primary_key_columns)}) DO NOTHING"
             query = f"{base_query} {conflict_clause}"
         else:
-            # No constraints found, use simple insert
             query = base_query
 
         try:
@@ -135,11 +132,9 @@ class DatabaseSeeder:
         except Exception as e:
             self.conn.rollback()
             logger.error(f"Bulk insert failed for {table}: {e}")
-            # Try individual inserts to identify problematic records
             self._try_individual_inserts(table, columns, data)
 
     def _try_individual_inserts(self, table: str, columns: List[str], data: List[tuple]):
-        """Try individual inserts to handle duplicates gracefully"""
         logger.info(f"Attempting individual inserts for {table}")
         success_count = 0
         failure_count = 0
@@ -160,10 +155,8 @@ class DatabaseSeeder:
         logger.info(f"Individual inserts completed: {success_count} success, {failure_count} failures")
 
     def seed_departments_and_designations(self, df_emp: pd.DataFrame):
-        """Seed departments and designations from employee data"""
         logger.info("Seeding departments and designations...")
 
-        # Extract unique departments
         departments = df_emp[['Department', 'Business Unit', 'Parent Department']].drop_duplicates()
         dept_data = []
         for _, row in departments.iterrows():
@@ -174,12 +167,12 @@ class DatabaseSeeder:
                 'Active'
             ))
 
-        # Use the safe bulk insert method
+
         self.bulk_insert_safe('department',
                             ['department_name', 'business_unit', 'parent_department', 'status'],
                             dept_data)
 
-        # Extract unique designations
+
         designations = df_emp['Designation'].unique()
         desig_data = [(desig, 'Mid', 'Active') for desig in designations if pd.notna(desig)]
 
@@ -188,23 +181,22 @@ class DatabaseSeeder:
                             desig_data)
 
     def get_reference_mappings(self):
-        """Get department and designation ID mappings"""
-        # Get department mappings
+        
         self.cursor.execute("SELECT department_id, department_name FROM department")
         dept_mapping = {name: dept_id for dept_id, name in self.cursor.fetchall()}
 
-        # Get designation mappings
+
         self.cursor.execute("SELECT designation_id, designation_name FROM designation")
         desig_mapping = {name: desig_id for desig_id, name in self.cursor.fetchall()}
 
         return dept_mapping, desig_mapping
 
     def parse_date(self, date_str: str) -> datetime.date:
-        """Parse date string in multiple formats"""
+
         if pd.isna(date_str):
             return None
             
-        formats = ['%d-%m-%Y', '%Y-%m-%d']  # Add more formats if needed
+        formats = ['%d-%m-%Y', '%Y-%m-%d']  
         
         for fmt in formats:
             try:
@@ -212,7 +204,7 @@ class DatabaseSeeder:
             except ValueError:
                 continue
                 
-        # If no format works, try pandas' flexible parser
+
         try:
             return pd.to_datetime(date_str).date()
         except Exception as e:
@@ -220,19 +212,18 @@ class DatabaseSeeder:
             return None
 
     def seed_employees(self, df_emp: pd.DataFrame, dept_mapping: Dict, desig_mapping: Dict):
-        """Seed employee data"""
         logger.info("Seeding employees...")
 
         emp_data = []
         personal_data = []
         financial_data = []
 
-        # Keep track of used Aadhaar numbers to handle duplicates
-        used_aadhaar = {}  # Store original to modified mapping
-        used_pan = {}  # Store original to modified mapping
+
+        used_aadhaar = {}  
+        used_pan = {}  
 
         for _, row in df_emp.iterrows():
-            # Main employee data
+
             emp_data.append((
                 row['Employee Code'],
                 row['Employee Name'],
@@ -243,18 +234,18 @@ class DatabaseSeeder:
                 row['Grade'] if pd.notna(row['Grade']) else None,
                 row['Status'],
                 dept_mapping.get(row['Department']),
-                row['Department'],  # department_name
+                row['Department'],  
                 desig_mapping.get(row['Designation']),
-                None,  # primary_manager_id
-                0.0,  # past_experience
-                0.0   # current_experience
+                None,  
+                0.0,  
+                0.0   
             ))
 
-            # Handle duplicate Aadhaar numbers by incrementing them
+
             aadhaar = str(row['Aadhaar Number']) if pd.notna(row['Aadhaar Number']) else None
             if aadhaar:
                 if aadhaar in used_aadhaar:
-                    # Increment the last digit
+
                     base = aadhaar[:-1]
                     last_digit = int(aadhaar[-1])
                     new_last_digit = (last_digit + 1) % 10
@@ -264,18 +255,18 @@ class DatabaseSeeder:
                         aadhaar = f"{base}{new_last_digit}"
                 used_aadhaar[str(row['Aadhaar Number'])] = aadhaar
 
-            # Handle duplicate PAN numbers similarly
+
             pan = str(row['PAN Number']) if pd.notna(row['PAN Number']) else None
             if pan:
                 if pan in used_pan:
-                    # Increment the last character for PAN
+
                     base = pan[:-1]
                     last_char = pan[-1]
-                    # Use digits if last char is digit, letters if last char is letter
+
                     if last_char.isdigit():
                         new_last_char = str((int(last_char) + 1) % 10)
                     else:
-                        # Use A-Z for letters
+
                         new_last_char = chr((ord(last_char.upper()) - ord('A') + 1) % 26 + ord('A'))
                     pan = f"{base}{new_last_char}"
                     while pan in used_pan.values():
@@ -286,7 +277,7 @@ class DatabaseSeeder:
                         pan = f"{base}{new_last_char}"
                 used_pan[str(row['PAN Number'])] = pan
 
-            # Personal data
+
             personal_data.append((
                 row['Employee Code'],
                 row['Gender'] if pd.notna(row['Gender']) else None,
@@ -298,7 +289,7 @@ class DatabaseSeeder:
                 aadhaar
             ))
 
-            # Financial data
+
             financial_data.append((
                 row['Employee Code'],
                 row['Bank Name'] if pd.notna(row['Bank Name']) else None,
@@ -306,7 +297,7 @@ class DatabaseSeeder:
                 row['IFSC Code'] if pd.notna(row['IFSC Code']) else None
             ))
 
-        # Insert employee data using safe method
+
         self.bulk_insert_safe('employee',
                             ['employee_code', 'employee_name', 'email', 'mobile_number',
                              'date_of_joining', 'employee_type', 'grade', 'status',
@@ -327,11 +318,11 @@ class DatabaseSeeder:
                             primary_key_columns=['employee_code'])
 
     def seed_work_profiles(self, df_work: pd.DataFrame, dept_mapping: Dict, desig_mapping: Dict):
-        """Update employee work profiles with additional designation and department info"""
+
         logger.info("Processing work profiles...")
 
         for _, row in df_work.iterrows():
-            # Update employee with work profile information if different
+
             update_query = """
                 UPDATE employee 
                 SET department_id = COALESCE(%s, department_id),
@@ -350,7 +341,7 @@ class DatabaseSeeder:
                 logger.warning(f"Failed to update work profile for {row['Employee Code']}: {e}")
 
     def update_experience_data(self, df_exp: pd.DataFrame):
-        """Update employee experience data"""
+
         logger.info("Updating employee experience data...")
 
         for _, row in df_exp.iterrows():
@@ -370,7 +361,7 @@ class DatabaseSeeder:
                 logger.warning(f"Failed to update experience for {row['Employee Code']}: {e}")
 
     def seed_employee_exits(self, df_exit: pd.DataFrame):
-        """Seed employee exit data"""
+
         logger.info("Seeding employee exits...")
 
         exit_data = []
@@ -379,7 +370,7 @@ class DatabaseSeeder:
                 row['Employee Code'],
                 pd.to_datetime(row['Exit Date']).date(),
                 pd.to_datetime(row['Expected Resignation Date']).date(),
-                'Resignation',  # default reason
+                'Resignation',  
                 f"Employee {row['Employee Name']} resigned"
             ))
 
@@ -389,7 +380,7 @@ class DatabaseSeeder:
                             exit_data,
                             primary_key_columns=['employee_code'])
 
-        # Update employee status to Inactive for exited employees
+
         for _, row in df_exit.iterrows():
             try:
                 update_query = "UPDATE employee SET status = 'Inactive' WHERE employee_code = %s"
@@ -398,10 +389,9 @@ class DatabaseSeeder:
                 logger.warning(f"Failed to update status for exited employee {row['Employee Code']}: {e}")
 
     def seed_projects(self, df_timesheet: pd.DataFrame):
-        """Seed project data from timesheet data"""
         logger.info("Seeding projects...")
 
-        # First check existing projects
+
         project_query = """
             SELECT project_id, project_name
             FROM project
@@ -410,17 +400,17 @@ class DatabaseSeeder:
         self.cursor.execute(project_query)
         existing_projects = {pid: name for pid, name in self.cursor.fetchall()}
 
-        # Process new projects from timesheet
+
         project_data = []
         for project_id in df_timesheet['project_id'].unique():
             if project_id not in existing_projects:
                 project_data.append((
                     project_id,
-                    f"Project {project_id}",  # Default project name since it's not in the CSV
-                    'Default Client',  # placeholder client name
+                    f"Project {project_id}", 
+                    'Default Client', 
                     'Active',
-                    datetime.now().date(),  # start_date
-                    None  # end_date
+                    datetime.now().date(), 
+                    None  
                 ))
 
         if project_data:
@@ -431,7 +421,6 @@ class DatabaseSeeder:
                                 primary_key_columns=['project_id'])
 
     def seed_attendance(self, df_attendance: pd.DataFrame):
-        """Seed attendance data"""
         logger.info("Seeding attendance data...")
 
         attendance_data = []
@@ -455,7 +444,6 @@ class DatabaseSeeder:
                             primary_key_columns=['employee_code', 'attendance_date'])
 
     def seed_timesheets(self, df_timesheet: pd.DataFrame):
-        """Seed timesheet data"""
         logger.info("Seeding timesheet data...")
 
         timesheet_data = []
@@ -479,7 +467,7 @@ class DatabaseSeeder:
                             primary_key_columns=['employee_code', 'project_id', 'work_date'])
 
     def seed_project_allocations(self, df_allocations: pd.DataFrame):
-        """Seed project allocation data"""
+
         logger.info("Seeding project allocations...")
 
         allocation_data = []
@@ -507,32 +495,32 @@ class DatabaseSeeder:
 
     def seed_database(self, csv_files: Dict[str, str], clean_existing: bool = False,
                  tables_to_clean: List[str] = None):
-        """Seed database with data from CSV files"""
+
         try:
             logger.info(f"Starting database seeding with files: {list(csv_files.keys())}")
             
             if clean_existing:
                 self.clean_existing_data(tables_to_clean)
 
-            # First seed departments and designations from employee master
+
             if 'employee_master' in csv_files and csv_files['employee_master'] is not None:
                 df_emp = csv_files['employee_master']
-                if isinstance(df_emp, str):  # If it's a file path
+                if isinstance(df_emp, str):  
                     logger.info(f"Reading employee_master from file: {df_emp}")
                     df_emp = pd.read_csv(df_emp)
                 logger.info(f"Processing {len(df_emp)} employee records")
                 self.seed_departments_and_designations(df_emp)
 
-            # Get reference mappings
+
             dept_mapping, desig_mapping = self.get_reference_mappings()
             logger.info(f"Found {len(dept_mapping)} departments and {len(desig_mapping)} designations")
 
-            # Then seed employees
+
             if 'employee_master' in csv_files and csv_files['employee_master'] is not None:
                 logger.info("Seeding employee data...")
                 self.seed_employees(df_emp, dept_mapping, desig_mapping)
 
-            # Update work profiles
+
             if 'work_profile' in csv_files and csv_files['work_profile'] is not None:
                 df_work = csv_files['work_profile']
                 if isinstance(df_work, str):
@@ -541,7 +529,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_work)} work profiles")
                 self.seed_work_profiles(df_work, dept_mapping, desig_mapping)
 
-            # Update experience data
+
             if 'experience_report' in csv_files and csv_files['experience_report'] is not None:
                 df_exp = csv_files['experience_report']
                 if isinstance(df_exp, str):
@@ -550,7 +538,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_exp)} experience records")
                 self.update_experience_data(df_exp)
 
-            # Seed employee exits
+
             if 'employee_exit' in csv_files and csv_files['employee_exit'] is not None:
                 df_exit = csv_files['employee_exit']
                 if isinstance(df_exit, str):
@@ -559,7 +547,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_exit)} exit records")
                 self.seed_employee_exits(df_exit)
 
-            # Seed projects from timesheet data
+
             if 'timesheet_report' in csv_files and csv_files['timesheet_report'] is not None:
                 df_timesheet = csv_files['timesheet_report']
                 if isinstance(df_timesheet, str):
@@ -568,7 +556,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_timesheet)} timesheet records")
                 self.seed_projects(df_timesheet)
 
-            # Seed project allocations
+
             if 'project_allocations' in csv_files and csv_files['project_allocations'] is not None:
                 df_allocations = csv_files['project_allocations']
                 if isinstance(df_allocations, str):
@@ -577,7 +565,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_allocations)} allocation records")
                 self.seed_project_allocations(df_allocations)
 
-            # Seed resource utilization
+
             if 'resource_utilization' in csv_files and csv_files['resource_utilization'] is not None:
                 df_utilization = csv_files['resource_utilization']
                 if isinstance(df_utilization, str):
@@ -586,7 +574,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_utilization)} resource utilization records")
                 self.seed_resource_utilization(df_utilization)
 
-            # Seed attendance data
+
             if 'attendance_report' in csv_files and csv_files['attendance_report'] is not None:
                 df_attendance = csv_files['attendance_report']
                 if isinstance(df_attendance, str):
@@ -595,7 +583,7 @@ class DatabaseSeeder:
                 logger.info(f"Processing {len(df_attendance)} attendance records")
                 self.seed_attendance(df_attendance)
 
-            # Finally seed timesheet data
+
             if 'timesheet_report' in csv_files and csv_files['timesheet_report'] is not None:
                 logger.info(f"Processing {len(df_timesheet)} timesheet entries")
                 self.seed_timesheets(df_timesheet)
@@ -614,7 +602,7 @@ class DatabaseSeeder:
             return False
         
     def seed_resource_utilization(self, df_utilization: pd.DataFrame):
-        """Seed resource utilization data"""
+
         logger.info("Seeding resource utilization data...")
 
         utilization_data = []
@@ -635,7 +623,7 @@ class DatabaseSeeder:
                             primary_key_columns=['project_id', 'week_start_date'])
 
 def main():
-    # Database configuration
+
     db_config = {
         'host': os.getenv('DB_HOST', 'localhost'),
         'port': os.getenv('DB_PORT', '5432'),
@@ -644,7 +632,7 @@ def main():
         'password': os.getenv('DB_PASSWORD', 'your_password')
     }
 
-    # CSV files mapping
+
     csv_files = {
         'employee_master': 'employee_master.csv',
         'employee_exit': 'employee_exit_report.csv',
@@ -653,23 +641,23 @@ def main():
         'attendance_report': 'attendance_report_daily.csv',
         'timesheet_report': 'timesheet_report_clean.csv',
         'project_allocations': 'project_allocations.csv',
-        'resource_utilization': 'resource_utilization.csv'  # Add the new file
+        'resource_utilization': 'resource_utilization.csv'  
     }
 
-    # Verify CSV files exist
+
     for file_type, file_path in csv_files.items():
         if not os.path.exists(file_path):
             logger.warning(f"CSV file {file_path} not found. Skipping {file_type} data.")
             csv_files[file_type] = None
 
-    # Remove None values
+
     csv_files = {k: v for k, v in csv_files.items() if v is not None}
 
     if not csv_files:
         logger.error("No CSV files found. Please ensure CSV files are in the current directory.")
         return
 
-    # Initialize and run seeder
+
     seeder = DatabaseSeeder(db_config)
     try:
         seeder.connect()

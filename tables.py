@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-"""
-Database Table Creation Script
-Creates HR management system tables in PostgreSQL or SQLite database
-"""
+
 
 import psycopg2
 import sqlite3
@@ -11,7 +7,7 @@ from typing import Union, Optional
 import sys
 from datetime import datetime
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -24,14 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseTableCreator:
-    """Creates tables for HR management system"""
 
     def __init__(self, db_type: str = "postgresql"):
         self.db_type = db_type.lower()
         self.connection = None
 
     def connect_postgresql(self, host: str, database: str, user: str, password: str, port: int = 5432):
-        """Connect to PostgreSQL database"""
         try:
             self.connection = psycopg2.connect(
                 host=host,
@@ -46,7 +40,7 @@ class DatabaseTableCreator:
             raise
 
     def connect_sqlite(self, db_path: str = "hr_management.db"):
-        """Connect to SQLite database"""
+
         try:
             self.connection = sqlite3.connect(db_path)
             logger.info(f"Connected to SQLite database: {db_path}")
@@ -55,7 +49,7 @@ class DatabaseTableCreator:
             raise
 
     def get_table_creation_queries(self):
-        """Return table creation queries based on database type"""
+
 
         if self.db_type == "postgresql":
             return self._get_postgresql_queries()
@@ -63,7 +57,7 @@ class DatabaseTableCreator:
             return self._get_sqlite_queries()
 
     def _get_postgresql_queries(self):
-        """PostgreSQL table creation queries"""
+
         return [
             # DEPARTMENT
             """
@@ -256,7 +250,6 @@ class DatabaseTableCreator:
         ]
 
     def _get_sqlite_queries(self):
-        """SQLite table creation queries (adapted for SQLite syntax)"""
         return [
             # DEPARTMENT
             """
@@ -433,7 +426,6 @@ class DatabaseTableCreator:
         ]
 
     def create_tables(self):
-        """Create all tables in the database"""
         if not self.connection:
             raise Exception("No database connection established")
 
@@ -475,18 +467,15 @@ class DatabaseTableCreator:
             cursor.close()
 
     def close_connection(self):
-        """Close database connection"""
         if self.connection:
             self.connection.close()
             logger.info("Database connection closed")
 
 
 def main():
-    """Main function to create tables"""
     print("HR Management System - Database Table Creator")
     print("=" * 50)
 
-    # Choose database type
     db_type = input("Choose database type (postgresql/sqlite) [postgresql]: ").strip().lower()
     if not db_type:
         db_type = "postgresql"
@@ -508,7 +497,7 @@ def main():
 
             creator.connect_postgresql(host, database, user, password, int(port))
 
-        else:  # SQLite
+        else:  
             db_path = input("Database file path [hr_management.db]: ").strip()
             if not db_path:
                 db_path = "hr_management.db"
